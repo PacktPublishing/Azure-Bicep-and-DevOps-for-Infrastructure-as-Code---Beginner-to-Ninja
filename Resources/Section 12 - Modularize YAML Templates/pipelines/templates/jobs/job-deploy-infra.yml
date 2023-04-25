@@ -1,0 +1,41 @@
+parameters:
+  - name: job
+    type: string
+  - name: serviceConnection
+    type: string
+  - name: infraPath
+    type: string
+  - name: resourceGroupName
+    type: string
+  - name: location
+    type: string
+  - name: overrideParameters
+    type: string
+
+jobs:
+  - job: "${{ parameters.job }}"
+    displayName: "Job: Provision Infrastructure - ${{ parameters.job }}"
+    steps:
+      - task: AzurePowerShell@5
+        inputs:
+          azureSubscription: "${{ parameters.serviceConnection }}"
+          ScriptType: "FilePath"
+          ScriptPath: "$(System.DefaultWorkingDirectory)/scripts/compile-bicep-to-arm.ps1"
+          ScriptArguments:
+            "-filePath $(System.DefaultWorkingDirectory)/${{ parameters.infraPath }} `
+            -bicepTemplate main.bicep `
+            -outFile main.json"
+          FailOnStandardError: true
+          azurePowerShellVersion: "LatestVersion"
+
+      - task: AzureResourceManagerTemplateDeployment@3
+        inputs:
+          deploymentScope: "Resource Group"
+          azureResourceManagerConnection: "${{ parameters.serviceConnection }}"
+          action: "Create Or Update Resource Group"
+          resourceGroupName: "${{ parameters.resourceGroupName }}"
+          location: "${{ parameters.location }}"
+          templateLocation: "Linked artifact"
+          csmFile: "${{ parameters.infraPath }}/main.json"
+          deploymentMode: "Incremental"
+          overrideParameters: "${{ parameters.overrideParameters }}"

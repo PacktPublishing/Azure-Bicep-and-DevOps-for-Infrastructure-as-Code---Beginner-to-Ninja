@@ -1,0 +1,66 @@
+parameters:
+  - name: stage
+    type: string
+  - name: dependsOn
+    type: object
+    default: []
+  - name: condition
+    type: string
+    default: succeeded()
+  - name: resource
+    type: string
+  - name: serviceConnection
+    type: string
+  - name: resourceGroupName
+    type: string
+  - name: infraPath
+    type: string
+  - name: location
+    type: string
+  - name: owner
+    type: string
+  - name: costCenter
+    type: string
+  - name: application
+    type: string
+  - name: description
+    type: string
+  - name: repository
+    type: string
+  - name: appShort
+    type: string
+  - name: domainShort
+    type: string
+  - name: version
+    type: string
+  - name: environment
+    type: string
+    values:
+      - dev
+      - test
+      - prod
+    default: dev
+
+stages:
+  - stage: "${{ parameters.stage }}"
+    displayName: "Stage: Provision Infrastructure - ${{ parameters.resource }}"
+    dependsOn: "${{ parameters.dependsOn }}"
+    condition: "${{ parameters.condition }}"
+    jobs:
+      - template: "../jobs/job-deploy-infra.yml@self"
+        parameters:
+          job: "JobDeployInfrastructure"
+          serviceConnection: "${{ parameters.serviceConnection }}"
+          infraPath: "${{ parameters.infraPath }}"
+          resourceGroupName: "${{ parameters.resourceGroupName }}"
+          location: "${{ parameters.location }}"
+          overrideParameters: >-
+            -owner "${{ parameters.owner }}"
+            -costCenter "${{ parameters.costCenter }}"
+            -application "${{ parameters.application }}"
+            -desc "${{ parameters.description }}"
+            -repo "${{ parameters.repository }}"
+            -appShort "${{ parameters.appShort }}"
+            -domainShort "${{ parameters.domainShort }}"
+            -environment "${{ parameters.environment }}"
+            -version "${{ parameters.version }}"
