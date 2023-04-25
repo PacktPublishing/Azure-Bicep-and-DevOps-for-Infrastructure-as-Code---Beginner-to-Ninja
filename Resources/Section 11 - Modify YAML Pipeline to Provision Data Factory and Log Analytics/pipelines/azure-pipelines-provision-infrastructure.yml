@@ -1,0 +1,103 @@
+trigger: none
+
+pool: default
+
+parameters:
+  - name: variableGroup
+    type: string
+    default: vg-pdb-infrastructure
+  - name: serviceConnection
+    type: string
+    default: serviceConnectionProjectDayBreak
+  - name: environment
+    type: string
+    values:
+      - dev
+      - test
+      - prod
+
+variables:
+  - group: ${{ parameters.variableGroup }}
+  - name: version
+    value: 001
+
+stages:
+  - stage: StageProvisionInfrastructureLogAnalytics
+    displayName: "Stage: Provision Infrastructure - Log Analytics"
+    jobs:
+      - job: JobProvisionInfrastructureLogAnalytics
+        displayName: "Job: Provision Infrastructure - Log Analytics"
+        steps:
+          - task: AzurePowerShell@5
+            inputs:
+              azureSubscription: "${{ parameters.serviceConnection }}"
+              ScriptType: "FilePath"
+              ScriptPath: "$(System.DefaultWorkingDirectory)/scripts/compile-bicep-to-arm.ps1"
+              ScriptArguments:
+                "-filePath $(System.DefaultWorkingDirectory)/infra/logAnalytics `
+                -bicepTemplate main.bicep `
+                -outFile main.json"
+              FailOnStandardError: true
+              azurePowerShellVersion: "LatestVersion"
+
+          - task: AzureResourceManagerTemplateDeployment@3
+            inputs:
+              deploymentScope: "Resource Group"
+              azureResourceManagerConnection: "${{ parameters.serviceConnection }}"
+              action: "Create Or Update Resource Group"
+              resourceGroupName: "rg-$(companyShort)-$(domainShort)-$(appShort)-$(locationAbbr)-${{ parameters.environment }}-$(version)"
+              location: "$(location)"
+              templateLocation: "Linked artifact"
+              csmFile: "infra/logAnalytics/main.json"
+              deploymentMode: "Incremental"
+              overrideParameters: >-
+                -owner "$(owner)"
+                -costCenter "$(costCenter)"
+                -application "$(application)"
+                -desc "$(description)"
+                -repo "$(repository)"
+                -appShort "$(appShort)"
+                -domainShort "$(domainShort)"
+                -environment "${{ parameters.environment }}"
+                -version "$(version)"
+
+  - stage: StageProvisionInfrastructureDataFactory
+    displayName: "Stage: Provision Infrastructure - Data Factory"
+    dependsOn: StageProvisionInfrastructureLogAnalytics
+    condition: succeeded()
+    jobs:
+      - job: JobProvisionInfrastructureDataFactory
+        displayName: "Job: Provision Infrastructure - Data Factory"
+        steps:
+          - task: AzurePowerShell@5 
+            inputs:
+              azureSubscription: "${{ parameters.serviceConnection }}"
+              ScriptType: "FilePath"
+              ScriptPath: "$(System.DefaultWorkingDirectory)/scripts/compile-bicep-to-arm.ps1"
+              ScriptArguments:
+                "-filePath $(System.DefaultWorkingDirectory)/infra/dataFactory `
+                -bicepTemplate main.bicep `
+                -outFile main.json"
+              FailOnStandardError: true
+              azurePowerShellVersion: "LatestVersion"
+
+          - task: AzureResourceManagerTemplateDeployment@3
+            inputs:
+              deploymentScope: "Resource Group"
+              azureResourceManagerConnection: "${{ parameters.serviceConnection }}"
+              action: "Create Or Update Resource Group"
+              resourceGroupName: "rg-$(companyShort)-$(domainShort)-$(appShort)-$(locationAbbr)-${{ parameters.environment }}-$(version)"
+              location: "$(location)"
+              templateLocation: "Linked artifact"
+              csmFile: "infra/dataFactory/main.json"
+              deploymentMode: "Incremental"
+              overrideParameters: >-
+                -owner "$(owner)"
+                -costCenter "$(costCenter)"
+                -application "$(application)"
+                -desc "$(description)"
+                -repo "$(repository)"
+                -appShort "$(appShort)"
+                -domainShort "$(domainShort)"
+                -environment "${{ parameters.environment }}"
+                -version "$(version)"
